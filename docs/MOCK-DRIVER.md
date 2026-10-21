@@ -61,7 +61,8 @@ small helpers, so the same programs run there unchanged.
 | Consumers | none: create them with `Server.CreateConsumer` (see Setup) |
 
 The contract suite does not depend on these names: its Provisioner names the pools, and it
-discovers the smallest profile of each kind and a ready built-in template of each kind.
+discovers the smallest profile of each kind that allows a ready built-in template of the kind
+and the suite's own template packages (named `contract-…`, `contract.TemplatePrefix`).
 
 ## Setup
 
