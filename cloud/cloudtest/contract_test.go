@@ -11,15 +11,52 @@ import (
 	"github.com/azaleva/azaleva-cloud-go/cloud/contract"
 )
 
-// TestContract runs the contract suite against the in-memory fake, with every optional hook.
-func TestContract(t *testing.T) {
-	// Profiles with a templates list (the suite checks that they refuse other templates).
-	srv := cloudtest.Start(t, cloudtest.Options{Profiles: []cloud.Profile{
+// pinnedProfiles have a templates list that leaves out the built-ins (the suite checks that
+// they refuse other templates).
+func pinnedProfiles() []cloud.Profile {
+	return []cloud.Profile{
 		{Name: "job-pinned", Kind: cloud.KindJob, VCPU: 2, MemoryMiB: 2048, DiskMiB: 4096, TimeoutSeconds: 3600, Backend: "envd",
 			Templates: []string{"hub-runner"}},
 		{Name: "machine-pinned", Kind: cloud.KindMachine, VCPU: 2, MemoryMiB: 4096, DiskMiB: 10240, Backend: "companion",
 			Modes: []cloud.MachineMode{cloud.OnDemand}, Hostname: "machine", Templates: []string{"hub-*"}},
-	}, Transport: cloud.TransportLimits{ConnectionsPerMachine: 4}})
+	}
+}
+
+// TestContract runs the contract suite against the in-memory fake, with every optional hook.
+func TestContract(t *testing.T) {
+	runContract(t, pinnedProfiles())
+}
+
+// TestContractListedProfiles runs the suite where the small profiles have a templates list that
+// allows the built-in and the suite's packages (contract.TemplatePrefix + "*"), and smaller ones
+// allow only the built-in: the suite has to pick the small ones.
+func TestContractListedProfiles(t *testing.T) {
+	egress := func(max, def cloud.EgressMode) *struct {
+		Max     cloud.EgressMode `json:"max"`
+		Default cloud.EgressMode `json:"default"`
+	} {
+		return &struct {
+			Max     cloud.EgressMode `json:"max"`
+			Default cloud.EgressMode `json:"default"`
+		}{max, def}
+	}
+	suite := contract.TemplatePrefix + "*"
+	runContract(t, append(pinnedProfiles(),
+		cloud.Profile{Name: "job-small", Kind: cloud.KindJob, VCPU: 1, MemoryMiB: 1024, DiskMiB: 2048, TimeoutSeconds: 3600, Backend: "envd",
+			Egress: egress(cloud.EgressAllowlist, cloud.EgressNone), Templates: []string{"cloud-job", suite}},
+		cloud.Profile{Name: "job-builtin-only", Kind: cloud.KindJob, VCPU: 1, MemoryMiB: 512, DiskMiB: 2048, TimeoutSeconds: 3600, Backend: "envd",
+			Egress: egress(cloud.EgressAllowlist, cloud.EgressNone), Templates: []string{"cloud-job"}},
+		cloud.Profile{Name: "machine-small", Kind: cloud.KindMachine, VCPU: 2, MemoryMiB: 2048, DiskMiB: 10240,
+			Modes: []cloud.MachineMode{cloud.OnDemand, cloud.AlwaysOn}, IdlePauseSeconds: 1800, Backend: "companion", Hostname: "machine",
+			Egress: egress(cloud.EgressInternet, cloud.EgressAllowlist), Templates: []string{"computer-base", suite}},
+		cloud.Profile{Name: "machine-builtin-only", Kind: cloud.KindMachine, VCPU: 1, MemoryMiB: 1024, DiskMiB: 10240,
+			Modes: []cloud.MachineMode{cloud.OnDemand, cloud.AlwaysOn}, IdlePauseSeconds: 1800, Backend: "companion", Hostname: "machine",
+			Egress: egress(cloud.EgressInternet, cloud.EgressAllowlist), Templates: []string{"computer-*"}},
+	))
+}
+
+func runContract(t *testing.T, profiles []cloud.Profile) {
+	srv := cloudtest.Start(t, cloudtest.Options{Profiles: profiles, Transport: cloud.TransportLimits{ConnectionsPerMachine: 4}})
 	contract.Run(t, contract.Env{
 		URL:                 srv.URL,
 		Provisioner:         provisioner{srv},

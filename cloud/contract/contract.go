@@ -85,11 +85,32 @@ type Env struct {
 	SetServiceListening func(machine, service string, up bool) error
 	// ServiceTemplate names an existing ready machine template that declares exactly the
 	// service web on port 8080 (optional, real nodes): the transport case then uses it instead of
-	// building the echo recipe, and starts the echo service in its machines through the API.
+	// building the echo recipe, and starts the echo service in its machines through the API. The
+	// suite's machine profile must allow it too.
 	ServiceTemplate string
 	// RemoveService removes a declared service from a machine, as a reset onto a template
 	// version without it (optional; else the suite closes connections by deleting the machine).
 	RemoveService func(machine, service string) error
+}
+
+// TemplatePrefix starts the name of every template package the suite uploads (e.g.
+// "contract-runner-1a2b3c4d": the prefix, a purpose and, for most, the run's random tag). The
+// suite runs them on the profile it picks per kind, so that profile must allow these names:
+// it has no templates list, or its list allows TemplatePrefix + "*" (an installation whose
+// profiles all have templates lists adds that pattern to one profile per kind).
+const TemplatePrefix = "contract-"
+
+// templateName is the name of one of the suite's template packages for purpose.
+func (s *suite) templateName(purpose string) string { return TemplatePrefix + purpose + "-" + s.tag }
+
+// allowsAll says the profile allows every one of names.
+func allowsAll(p cloud.Profile, names []string) bool {
+	for _, n := range names {
+		if !p.AllowsTemplate(n) {
+			return false
+		}
+	}
+	return true
 }
 
 // suite is the shared state of one run.
@@ -220,9 +241,18 @@ func (s *suite) setup(t *testing.T) {
 		}
 		tpls, err := s.a.c.Templates.List(s.ctx, cloud.TemplateListOptions{Kind: kind})
 		must(t, err)
+		// Templates the profile must allow besides the built-in: the suite's own packages (all
+		// named with TemplatePrefix) and, for machines, Env.ServiceTemplate.
+		need := []string{s.templateName("runner")}
+		if kind == cloud.KindMachine && s.env.ServiceTemplate != "" {
+			name, _, err := cloud.ParseTemplateRef(s.env.ServiceTemplate)
+			must(t, err)
+			need = append(need, name)
+		}
 		// The smallest profile of the kind that runs in the pool and has the suite's defaults
-		// (no default mode or user, no forced restart policy, every template: the suite's own
-		// template packages use it too), with a ready built-in template it allows.
+		// (no default mode or user, no forced restart policy), allows the suite's own template
+		// packages (no templates list, or one that allows TemplatePrefix*), and allows a ready
+		// built-in template.
 		var best *cloud.Profile
 		ref := ""
 		for _, tp := range tpls.Data {
@@ -231,7 +261,7 @@ func (s *suite) setup(t *testing.T) {
 			}
 			for i, p := range profs {
 				if !p.AllowsTemplate(tp.Name) || !p.AllowsPool(s.pool) || p.DefaultMode != "" || p.DefaultUser != "" ||
-					p.Restart != "" || len(p.Templates) > 0 {
+					p.Restart != "" || !allowsAll(p, need) {
 					continue
 				}
 				if best == nil || p.MemoryMiB < best.MemoryMiB {
@@ -243,7 +273,9 @@ func (s *suite) setup(t *testing.T) {
 			}
 		}
 		if best == nil {
-			t.Fatalf("no ready built-in %s template with a profile of pool %s", kind, s.pool)
+			t.Fatalf("no %s profile of pool %s with no templates list, or one that allows %s*, "+
+				"that also allows a ready built-in %s template (and has no default mode, user or restart policy)",
+				kind, s.pool, TemplatePrefix, kind)
 		}
 		if kind == cloud.KindJob {
 			s.jobProfile, s.jobTemplate = best.Name, ref

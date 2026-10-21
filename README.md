@@ -73,6 +73,12 @@ c, _ := cloud.New(srv.URL, key)
 go vet ./... && go test -race ./...
 ```
 
+The contract suite also runs against a running installation (`TestContractRemote` in
+`cloud/contract`, set up by environment variables). It uploads template packages of its own,
+all named `contract-…` (`contract.TemplatePrefix`), and runs them on the smallest profile of each
+kind that also allows a ready built-in template: each kind needs such a profile with no
+templates list, or one whose list allows `contract-*`.
+
 ## License
 
 Apache License 2.0: see [LICENSE](LICENSE).

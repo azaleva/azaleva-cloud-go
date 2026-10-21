@@ -51,7 +51,7 @@ func (s *suite) testServiceTransport(t *testing.T) {
 	// A machine template that declares a service; the machine's own ports are refused.
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	must(t, err)
-	provisioned(t, s.prov.AddTemplateSigner(s.ctx, a.id, pub, []string{"svc-*"}))
+	provisioned(t, s.prov.AddTemplateSigner(s.ctx, a.id, pub, []string{TemplatePrefix + "svc-*"}))
 	upload := func(name string, svcs []cloud.ServiceDeclaration) (*cloud.Template, error) {
 		files := map[string][]byte{"recipe.py": []byte("print('service machine')\n")}
 		if s.env.RealRecipes {
@@ -73,7 +73,7 @@ func (s *suite) testServiceTransport(t *testing.T) {
 		{cloud.ServiceDeclaration{Name: "companion", Port: 8080, Protocol: "http"}, "invalid"},
 		{cloud.ServiceDeclaration{Name: "web", Port: 80, Protocol: "http"}, "invalid"},
 	} {
-		_, err := upload("svc-bad-"+s.tag, []cloud.ServiceDeclaration{bad.svc})
+		_, err := upload(s.templateName("svc-bad"), []cloud.ServiceDeclaration{bad.svc})
 		if e := wantCode(t, err, cloud.CodeInvalidTemplatePackage); len(e.Errors) == 0 || e.Errors[0].Code != bad.code {
 			t.Fatalf("service %+v: %+v, want %s", bad.svc, e.Errors, bad.code)
 		}
@@ -85,7 +85,7 @@ func (s *suite) testServiceTransport(t *testing.T) {
 		tp, err = a.c.Templates.Get(s.ctx, s.env.ServiceTemplate)
 		must(t, err)
 	} else {
-		tp, err = upload("svc-echo-"+s.tag, []cloud.ServiceDeclaration{{Name: "web", Port: 8080, Protocol: "http", Description: "echo"}})
+		tp, err = upload(s.templateName("svc-echo"), []cloud.ServiceDeclaration{{Name: "web", Port: 8080, Protocol: "http", Description: "echo"}})
 		must(t, err)
 		tp = s.waitTemplate(t, a, tp.ID)
 	}

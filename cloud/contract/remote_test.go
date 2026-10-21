@@ -23,7 +23,9 @@ import (
 //	go test -run TestContractRemote ./cloud/contract
 //
 // The keys have every scope and belong to two consumers that may use both pools: one with at
-// least two schedulable nodes, one without nodes. The cases that need more setup (more
+// least two schedulable nodes, one without nodes. Per kind, a profile of the first pool must
+// allow a ready built-in template and the suite's packages: no templates list, or one that
+// allows contract-* (contract.TemplatePrefix). The cases that need more setup (more
 // consumers or keys, ceilings, signers, webhooks) skip; an installation's own tests run them
 // with a Provisioner wired to its tooling. Without the clock and node hooks, the tests that
 // need them skip too. CLOUD_CONTRACT_MACHINE_WAIT (a Go duration, e.g. 10m) lengthens each

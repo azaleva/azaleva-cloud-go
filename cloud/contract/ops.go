@@ -216,9 +216,9 @@ func (s *suite) waitTemplate(t *testing.T, tn *tenant, id string) *cloud.Templat
 func (s *suite) testTemplates(t *testing.T) {
 	a, b := s.a, s.b
 	pub := s.signer.Public().(ed25519.PublicKey)
-	provisioned(t, s.prov.AddTemplateSigner(s.ctx, a.id, pub, []string{"runner-*", "tool"}))
+	provisioned(t, s.prov.AddTemplateSigner(s.ctx, a.id, pub, []string{TemplatePrefix + "runner-*", TemplatePrefix + "tool"}))
 	signerID := cloud.KeyID(pub)
-	name := "runner-" + s.tag
+	name := s.templateName("runner")
 	pkg := s.pkg(t, name, cloud.KindJob, "print('build')\n")
 	after := s.latestSeq(t, a)
 	var meta cloud.ResponseMeta
@@ -257,7 +257,7 @@ func (s *suite) testTemplates(t *testing.T) {
 	if e := wantCode(t, err, cloud.CodeInvalidTemplatePackage); e.Errors[0].Code != "bad_signature" {
 		t.Fatalf("bad signature: %+v", e.Errors)
 	}
-	notAllowed := s.pkg(t, "other-"+s.tag, cloud.KindJob, "x")
+	notAllowed := s.pkg(t, s.templateName("other"), cloud.KindJob, "x")
 	_, err = a.c.Templates.Upload(s.ctx, notAllowed, cloud.SignTemplatePackage(s.signer, notAllowed))
 	if e := wantCode(t, err, cloud.CodeInvalidTemplatePackage); e.Errors[0].Code != "name_not_allowed" {
 		t.Fatalf("name not allowed: %+v", e.Errors)
@@ -327,7 +327,7 @@ func (s *suite) testTemplates(t *testing.T) {
 	_, err = a.c.Templates.Restore(s.ctx, tp2.Ref())
 	wantCode(t, err, cloud.CodeGone)
 	// A template that fails to build everywhere: template_not_ready.
-	broken := s.pkg(t, "tool", cloud.KindJob, "# mock: build-fail\n")
+	broken := s.pkg(t, TemplatePrefix+"tool", cloud.KindJob, "# mock: build-fail\n")
 	bt, err := a.c.Templates.Upload(s.ctx, broken, cloud.SignTemplatePackage(s.signer, broken))
 	must(t, err)
 	if bt.State != "failed" {
