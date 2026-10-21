@@ -16,9 +16,9 @@ import (
 func pinnedProfiles() []cloud.Profile {
 	return []cloud.Profile{
 		{Name: "job-pinned", Kind: cloud.KindJob, VCPU: 2, MemoryMiB: 2048, DiskMiB: 4096, TimeoutSeconds: 3600, Backend: "envd",
-			Templates: []string{"hub-runner"}},
+			Templates: []string{"runner"}},
 		{Name: "machine-pinned", Kind: cloud.KindMachine, VCPU: 2, MemoryMiB: 4096, DiskMiB: 10240, Backend: "companion",
-			Modes: []cloud.MachineMode{cloud.OnDemand}, Hostname: "machine", Templates: []string{"hub-*"}},
+			Modes: []cloud.MachineMode{cloud.OnDemand}, Hostname: "machine", Templates: []string{"runner-*"}},
 	}
 }
 

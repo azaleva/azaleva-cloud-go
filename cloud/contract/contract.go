@@ -64,8 +64,8 @@ type Env struct {
 	SetNodeConnected func(node string, up bool) error
 	// WebhooksReachable says the server can POST to a local httptest receiver.
 	WebhooksReachable bool
-	// NoEgressBinding says the nodes do not bind egress allowlists yet (real nodes before the
-	// network phase): the binding failure marker (docs/MOCK-DRIVER.md, "Deterministic failures")
+	// NoEgressBinding says the nodes do not bind egress allowlists (real nodes without egress
+	// enforcement): the binding failure marker (docs/MOCK-DRIVER.md, "Deterministic failures")
 	// is not checked.
 	NoEgressBinding bool
 	// RealRecipes makes the suite's template packages real recipes for the pinned template SDK
@@ -77,7 +77,7 @@ type Env struct {
 	// link between them.
 	MachineWait time.Duration
 	// BuildWait bounds how long a create retries 409 template_not_ready while the template's
-	// build for the profile is queued or building (decision C38: a profile added or resized is
+	// build for the profile is queued or building (a profile added or resized is
 	// built after the fact, and placement waits for it); 0: 20 minutes.
 	BuildWait time.Duration
 	// SetServiceListening makes a machine's declared service stop or start accepting
@@ -341,7 +341,7 @@ func (s *suite) job(t *testing.T, tn *tenant, project string, argv []string, mod
 }
 
 // placed runs a create until it is not refused with a retryable template_not_ready (the
-// template's build for the profile is queued or building, C38), for at most BuildWait, and
+// template's build for the profile is queued or building), for at most BuildWait, and
 // fails the test on any other error. A retryable refusal is not stored under an idempotency
 // key, so a keyed create may be retried with its key.
 func (s *suite) placed(t testing.TB, create func() error) {
